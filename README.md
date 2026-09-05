@@ -65,7 +65,7 @@ This is a market-structure research project. It is not intended to predict price
 
 ## Project status
 
-The source acquisition and raw PostgreSQL model are complete. No relationships between the datasets have been analyzed yet.
+The source acquisition, raw PostgreSQL model, cleaning, and conservative security matching are complete. No relationships between the measures have been analyzed yet.
 
 ## Getting the data
 
@@ -110,4 +110,27 @@ To check the loaded counts and date coverage against the acquisition results:
 docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/001_counts_and_coverage.sql'
 ```
 
-The database layer intentionally stops at source-faithful raw tables. Identifier normalization, cross-dataset joins, derived metrics, and analysis belong to later work.
+## Cleaning and security matching
+
+Build the cleaned tables after loading the raw data:
+
+```powershell
+python -m src.cleaning.run
+```
+
+The build keeps every raw row and adds quality flags instead of silently deleting questionable records. SEC CUSIPs provide the security anchors. FINRA rows are linked only when their symbol is supported by SEC observations for the relevant date; uncertain rows keep a blank security ID.
+
+Run the database assertions and query the quality report with:
+
+```powershell
+python -m src.cleaning.run --sql-dir sql/tests
+docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/004_cleaning_quality.sql'
+```
+
+To refresh only the quality, identity, and coverage summaries without rebuilding the large cleaned tables:
+
+```powershell
+python -m src.cleaning.run --summaries-only
+```
+
+For the exchange-listed short-interest population, 97.68% of rows received a supported match. Daily short volume matched at 97.59%. Those figures include both exact same-date matches and lower-confidence matches inside an SEC-observed symbol date range; the report shows them separately. The 100% attached to SEC FTD rows only means each valid CUSIP anchors its own row—it is not a cross-source match rate.

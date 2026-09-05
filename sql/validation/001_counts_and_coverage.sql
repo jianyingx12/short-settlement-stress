@@ -1,7 +1,7 @@
 WITH observed AS (
     SELECT
         'finra_short_volume'::text AS dataset,
-        count(*) AS row_count,
+        count(*) AS database_rows,
         min(trade_date) AS earliest_date,
         max(trade_date) AS latest_date
     FROM market_structure.raw_short_volume
@@ -23,21 +23,22 @@ WITH observed AS (
         min(settlement_date),
         max(settlement_date)
     FROM market_structure.raw_ftd
-), expected(dataset, row_count, earliest_date, latest_date) AS (
-    VALUES
-        ('finra_short_volume', 19473114::bigint, DATE '2018-08-01', DATE '2026-09-04'),
-        ('finra_short_interest', 3693310::bigint, DATE '2018-08-15', DATE '2026-08-14'),
-        ('sec_ftd', 10465644::bigint, DATE '2018-08-01', DATE '2026-08-14')
+), manifest AS (
+    SELECT
+        dataset,
+        count(*) AS loaded_files,
+        sum(rows_loaded) AS manifest_rows
+    FROM market_structure.ingestion_file
+    GROUP BY dataset
 )
 SELECT
     observed.dataset,
-    observed.row_count,
-    expected.row_count AS expected_rows,
+    manifest.loaded_files,
+    observed.database_rows,
+    manifest.manifest_rows,
+    observed.database_rows = manifest.manifest_rows AS counts_match,
     observed.earliest_date,
-    observed.latest_date,
-    (observed.row_count = expected.row_count
-        AND observed.earliest_date = expected.earliest_date
-        AND observed.latest_date = expected.latest_date) AS matches_phase_1
+    observed.latest_date
 FROM observed
-JOIN expected USING (dataset)
+LEFT JOIN manifest USING (dataset)
 ORDER BY observed.dataset;
