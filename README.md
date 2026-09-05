@@ -65,7 +65,9 @@ This is a market-structure research project. It is not intended to predict price
 
 ## Project status
 
-The research questions and acquisition approach have been defined, but no results have been examined yet.
+The source acquisition and raw PostgreSQL model are complete. No relationships between the datasets have been analyzed yet.
+
+## Getting the data
 
 The three sources can be acquired with standard Python and no paid API keys:
 
@@ -76,3 +78,36 @@ python -m src.ingestion.sec_ftd
 ```
 
 Each command resumes safely when valid raw files already exist. Raw downloads are stored under `data/raw/` and are excluded from Git. Use `--help` to see date-range, worker, and smoke-test options.
+
+## Loading PostgreSQL
+
+The repository includes a small Docker Compose setup for PostgreSQL 17. Copy the example environment file, choose a local password, and start the database:
+
+```powershell
+Copy-Item .env.example .env
+docker compose up -d
+```
+
+Create a Python environment and install the PostgreSQL driver:
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+```
+
+Load the files already present under `data/raw/`:
+
+```powershell
+python -m src.loading.load_all
+```
+
+The loader uses PostgreSQL COPY and records a SHA-256 checksum for every file. Running it again skips files that have not changed. If a file changes under the same name, only that file's rows are replaced, inside a transaction.
+
+To check the loaded counts and date coverage against the acquisition results:
+
+```powershell
+docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/001_counts_and_coverage.sql'
+```
+
+The database layer intentionally stops at source-faithful raw tables. Identifier normalization, cross-dataset joins, derived metrics, and analysis belong to later work.

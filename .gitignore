@@ -1,4 +1,6 @@
 docs/
 data/raw/
+.env
+.venv/
 __pycache__/
 *.py[cod]
