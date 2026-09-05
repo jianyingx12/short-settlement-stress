@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS market_structure.short_volume_features;
+
 DROP VIEW IF EXISTS market_structure.latest_complete_shared_month;
 DROP VIEW IF EXISTS market_structure.high_confidence_security_overlap;
 DROP VIEW IF EXISTS market_structure.security_dataset_overlap;

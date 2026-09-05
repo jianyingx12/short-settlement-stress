@@ -65,7 +65,7 @@ This is a market-structure research project. It is not intended to predict price
 
 ## Project status
 
-The source acquisition, raw PostgreSQL model, cleaning, and conservative security matching are complete. No relationships between the measures have been analyzed yet.
+The source acquisition, raw PostgreSQL model, cleaning, conservative security matching, and daily short-volume feature build are complete. No relationships between the three measures have been analyzed yet.
 
 ## Getting the data
 
@@ -124,13 +124,28 @@ Run the database assertions and query the quality report with:
 
 ```powershell
 python -m src.cleaning.run --sql-dir sql/tests
-docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/004_cleaning_quality.sql'
+docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/003_cleaning_quality.sql'
 ```
 
 To refresh only the quality, identity, and coverage summaries without rebuilding the large cleaned tables:
 
 ```powershell
 python -m src.cleaning.run --summaries-only
+```
+
+Build the daily short-volume ratios and observation-window features with:
+
+```powershell
+python -m src.features.run
+```
+
+The feature table uses only valid rows with supported high- or medium-confidence identities. Rolling values require complete 5-, 14-, or 30-observation histories. Recent partial periods are kept for review but flagged out of the primary analysis window.
+
+After the build, rerun the database assertions and inspect the feature quality reports with:
+
+```powershell
+python -m src.cleaning.run --sql-dir sql/tests
+docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/004_short_volume_features.sql'
 ```
 
 For the exchange-listed short-interest population, 97.68% of rows received a supported match. Daily short volume matched at 97.59%. Those figures include both exact same-date matches and lower-confidence matches inside an SEC-observed symbol date range; the report shows them separately. The 100% attached to SEC FTD rows only means each valid CUSIP anchors its own row—it is not a cross-source match rate.

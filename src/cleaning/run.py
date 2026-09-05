@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import argparse
-import time
 from pathlib import Path
 
-from src.loading.common import read_database_settings
+from src.sql_runner import run_sql_files
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -30,19 +29,7 @@ def main() -> None:
     if not sql_files:
         parser.error(f"no SQL files found in {args.sql_dir}")
 
-    try:
-        import psycopg
-    except ImportError as exc:
-        raise RuntimeError("Install database dependencies with: pip install -r requirements.txt") from exc
-
-    settings = read_database_settings(args.env_file)
-    with psycopg.connect(**settings, autocommit=True) as connection:
-        for path in sql_files:
-            started = time.perf_counter()
-            with connection.cursor() as cursor:
-                cursor.execute(path.read_text(encoding="utf-8"))
-            elapsed = time.perf_counter() - started
-            print(f"{path.name}: {elapsed:.1f}s", flush=True)
+    run_sql_files(sql_files, args.env_file)
 
 
 if __name__ == "__main__":
