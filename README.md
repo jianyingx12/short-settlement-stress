@@ -65,6 +65,14 @@ This is a market-structure research project. It is not intended to predict price
 
 ## Project status
 
-The project is currently in the planning stage. The research questions and analysis approach have been defined, but no results have been examined yet.
+The research questions and acquisition approach have been defined, but no results have been examined yet.
 
-No data has been downloaded and no findings have been produced yet. The next step is to confirm the coverage of each source and build the data-acquisition process.
+The three sources can be acquired with standard Python and no paid API keys:
+
+```powershell
+python -m src.ingestion.finra_short_volume
+python -m src.ingestion.finra_short_interest
+python -m src.ingestion.sec_ftd
+```
+
+Each command resumes safely when valid raw files already exist. Raw downloads are stored under `data/raw/` and are excluded from Git. Use `--help` to see date-range, worker, and smoke-test options.
