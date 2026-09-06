@@ -3,6 +3,9 @@ WITH pair_values AS (
     SELECT pairs.pair, pairs.x, pairs.y
     FROM market_structure.short_interest_cycles AS cycle
     CROSS JOIN LATERAL (VALUES
+        ('rq1_volume_average_vs_si_percentile',
+            cycle.prior_14d_short_volume_ratio_avg,
+            cycle.short_interest_full_sample_percentile),
         ('rq1_volume_percentile_vs_si_percentile',
             cycle.prior_14d_short_volume_ratio_percentile,
             cycle.short_interest_full_sample_percentile),
@@ -14,7 +17,16 @@ WITH pair_values AS (
             cycle.signed_log_short_interest_change),
         ('rq2_volume_level_vs_log_si_change',
             cycle.prior_14d_short_volume_ratio_percentile,
-            cycle.signed_log_short_interest_change)
+            cycle.signed_log_short_interest_change),
+        ('rq2_volume_level_vs_absolute_si_change',
+            cycle.prior_14d_short_volume_ratio_percentile,
+            cycle.absolute_short_interest_change::double precision),
+        ('rq2_volume_level_vs_percentage_si_change',
+            cycle.prior_14d_short_volume_ratio_percentile,
+            cycle.percentage_short_interest_change),
+        ('rq2_volume_level_vs_days_to_cover_change',
+            cycle.prior_14d_short_volume_ratio_percentile,
+            cycle.days_to_cover_change)
     ) AS pairs(pair, x, y)
     WHERE cycle.is_primary_analysis_period
       AND pairs.x IS NOT NULL

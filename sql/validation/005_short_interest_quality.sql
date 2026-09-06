@@ -58,6 +58,37 @@ FROM (
 GROUP BY metric
 ORDER BY metric;
 
+-- Count large percentage changes and show the prior positions behind them.
+WITH thresholds AS (
+    SELECT threshold
+    FROM (VALUES (1.0), (10.0), (100.0)) AS values(threshold)
+), changes AS (
+    SELECT percentage_short_interest_change, previous_cycle_short_position
+    FROM market_structure.short_interest_cycles
+    WHERE is_primary_analysis_period
+      AND percentage_short_interest_change IS NOT NULL
+)
+SELECT
+    threshold,
+    count(*) FILTER (
+        WHERE abs(percentage_short_interest_change) >= threshold
+    ) AS observations,
+    count(*) FILTER (
+        WHERE abs(percentage_short_interest_change) >= threshold
+    )::double precision / count(*) AS share_of_changes,
+    min(previous_cycle_short_position) FILTER (
+        WHERE abs(percentage_short_interest_change) >= threshold
+    ) AS minimum_prior_position,
+    percentile_cont(0.5) WITHIN GROUP (
+        ORDER BY previous_cycle_short_position
+    ) FILTER (
+        WHERE abs(percentage_short_interest_change) >= threshold
+    ) AS median_prior_position
+FROM changes
+CROSS JOIN thresholds
+GROUP BY threshold
+ORDER BY threshold;
+
 -- Largest percentage changes, with the prior position shown for context.
 SELECT
     security_id,
