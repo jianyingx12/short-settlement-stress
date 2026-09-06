@@ -65,7 +65,7 @@ This is a market-structure research project. It is not intended to predict price
 
 ## Project status
 
-The source acquisition, raw PostgreSQL model, cleaning, conservative security matching, and daily short-volume feature build are complete. No relationships between the three measures have been analyzed yet.
+The source acquisition, PostgreSQL model, cleaning, security matching, short-volume features, and descriptive short-interest analysis are complete. Formal statistical inference and FTD analysis have not started.
 
 ## Getting the data
 
@@ -147,5 +147,26 @@ After the build, rerun the database assertions and inspect the feature quality r
 python -m src.cleaning.run --sql-dir sql/tests
 docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/004_short_volume_features.sql'
 ```
+
+## Short-interest cycle analysis
+
+Build the short-interest cycles and align each observation with FINRA activity strictly before its settlement date:
+
+```powershell
+python -m src.analysis.run
+```
+
+The primary specification uses the preceding 14 observed FINRA trading days. Five- and 30-observation averages are retained as limited comparisons. Short-interest changes use adjacent reporting cycles, and rows after the latest complete shared month remain stored but are excluded from primary cohorts.
+
+Run the assertions and descriptive report with:
+
+```powershell
+python -m src.cleaning.run --sql-dir sql/tests
+docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/005_short_interest_quality.sql'
+docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/006_short_interest_results.sql'
+docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/007_short_interest_sensitivity.sql'
+```
+
+The report contains descriptive correlations and fixed-cohort summaries only. Settlement dates are measurement dates; historical publication dates are unavailable, so these results are not a study of what investors knew at the time.
 
 For the exchange-listed short-interest population, 97.68% of rows received a supported match. Daily short volume matched at 97.59%. Those figures include both exact same-date matches and lower-confidence matches inside an SEC-observed symbol date range; the report shows them separately. The 100% attached to SEC FTD rows only means each valid CUSIP anchors its own row—it is not a cross-source match rate.

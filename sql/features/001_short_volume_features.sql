@@ -1,10 +1,12 @@
 CREATE TABLE market_structure.short_volume_features AS
+-- Stop the primary sample at the latest month complete across all three sources.
 WITH cutoff AS (
     SELECT
         (latest_complete_shared_month + INTERVAL '1 month - 1 day')::date
             AS primary_analysis_end
     FROM market_structure.latest_complete_shared_month
 ), daily AS (
+    -- Keep rows with a usable identity and a positive volume denominator.
     SELECT
         volume.security_id,
         volume.trade_date,
@@ -33,6 +35,7 @@ WITH cutoff AS (
       AND volume.security_id IS NOT NULL
       AND volume.total_volume > 0
 ), numbered AS (
+    -- Windows are based on trading observations, not calendar days.
     SELECT
         daily.*,
         row_number() OVER security_history AS observation_number,
@@ -44,6 +47,7 @@ WITH cutoff AS (
         ORDER BY trade_date
     )
 ), windowed AS (
+    -- Historical averages exclude the current row; rolling averages include it.
     SELECT
         numbered.*,
         avg(short_volume_ratio) OVER window_5d AS avg_5d_raw,
@@ -104,6 +108,7 @@ WITH cutoff AS (
             ORDER BY short_volume_ratio
         )
 )
+-- Do not publish a rolling value until its full window is available.
 SELECT
     security_id,
     trade_date,
@@ -145,10 +150,12 @@ SELECT
         WHEN observation_number >= 28
             THEN avg_14d_raw - prior_14d_avg_raw
     END AS short_volume_ratio_avg_14d_change,
+    -- Require 20 earlier observations before measuring historical deviation.
     CASE
         WHEN observation_number >= 21 AND history_std > 0
             THEN (short_volume_ratio - history_mean) / history_std
     END AS short_volume_ratio_history_zscore,
+    -- Rank each ratio against other supported securities from the same date.
     CASE
         WHEN daily_security_count = 1 THEN 0.5
         ELSE (

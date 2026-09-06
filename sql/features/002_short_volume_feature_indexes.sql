@@ -24,6 +24,7 @@ ALTER TABLE market_structure.short_volume_features
     ),
     ADD CHECK (short_volume_ratio_daily_percentile BETWEEN 0 AND 1);
 
+-- Keep the date index small; validation queries mostly scan broad date ranges.
 CREATE INDEX short_volume_features_trade_date_brin
     ON market_structure.short_volume_features USING brin (trade_date);
 

@@ -1,4 +1,4 @@
--- Population retained for feature engineering and identity-based exclusions.
+-- Population retained for feature engineering and identity based exclusions.
 SELECT
     count(*) AS total_cleaned_rows,
     count(*) FILTER (WHERE quality_status = 'VALID' AND total_volume > 0)
@@ -32,7 +32,7 @@ SELECT
     ) AS invalid_denominator_or_quality_rows
 FROM market_structure.short_volume_daily;
 
--- Feature coverage, including rows retained outside the frozen primary period.
+-- Date and rolling-window coverage.
 SELECT
     count(*) AS feature_rows,
     count(DISTINCT security_id) AS securities,
@@ -47,7 +47,7 @@ SELECT
         AS ready_history_rows
 FROM market_structure.short_volume_features;
 
--- Core metric distributions. Percentiles use the complete feature population.
+-- Distributions across the full feature table.
 SELECT
     count(*) AS observations,
     avg(short_volume_ratio) AS mean,
@@ -86,7 +86,7 @@ FROM (
 GROUP BY feature_name
 ORDER BY feature_name;
 
--- Inspect extreme values with their denominators visible.
+-- Largest ratios and z-scores, with volume shown for context.
 (SELECT 'highest_ratio' AS extreme_type, security_id, trade_date, symbol,
         short_volume, short_exempt_volume, total_volume, short_volume_ratio,
         short_volume_ratio_history_zscore

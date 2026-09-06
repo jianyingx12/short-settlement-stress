@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS market_structure.short_interest_cycles;
 DROP TABLE IF EXISTS market_structure.short_volume_features;
 
 DROP VIEW IF EXISTS market_structure.latest_complete_shared_month;
