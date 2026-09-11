@@ -1,0 +1,32 @@
+Analysis End Date =
+MAX ( bi_dashboard_metadata[analysis_end_date] )
+
+Selected Security =
+COALESCE (
+    SELECTEDVALUE ( bi_security_catalog[security_label] ),
+    "Choose one security"
+)
+
+Relationship Spearman =
+MAX ( bi_key_relationships[spearman_correlation] )
+
+Effect Size =
+MAX ( bi_key_effects[effect_size] )
+
+Cohort Median =
+CALCULATE (
+    MAX ( bi_relationship_cohorts[estimate] ),
+    bi_relationship_cohorts[estimate_name] = "median"
+)
+
+Episode Share =
+SUM ( bi_ftd_episode_distribution[episode_share] )
+
+Regime Share =
+SUM ( bi_ftd_regime_summary[observation_share] )
+
+FTD Value Coverage =
+DIVIDE (
+    COUNT ( bi_security_ftd[ftd_value] ),
+    COUNTROWS ( bi_security_ftd )
+)

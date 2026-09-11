@@ -1,0 +1,14 @@
+{
+  "name": "Settlement Stress",
+  "dataColors": [
+    "#2F6B7C",
+    "#D28B35",
+    "#6F7D5C",
+    "#8C6A8C",
+    "#4F6D9A",
+    "#B75D69"
+  ],
+  "background": "#F7F8FA",
+  "foreground": "#20272E",
+  "tableAccent": "#2F6B7C"
+}
