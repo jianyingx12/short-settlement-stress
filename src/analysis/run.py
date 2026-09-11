@@ -11,7 +11,7 @@ DEFAULT_SQL_DIR = PROJECT_ROOT / "sql" / "analysis"
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build short-interest cycle analysis.")
+    parser = argparse.ArgumentParser(description="Build the analysis tables.")
     parser.add_argument("--env-file", type=Path, default=PROJECT_ROOT / ".env")
     args = parser.parse_args()
 

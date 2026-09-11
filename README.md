@@ -65,7 +65,7 @@ This project studies market structure. It is not intended to predict prices, ide
 
 ## Project status
 
-The data has been downloaded, loaded into PostgreSQL, cleaned, and matched across sources. The short volume, short interest, and daily FTD analyses are also complete. Persistent FTD episode analysis and formal statistical modeling have not started.
+The data has been downloaded, loaded into PostgreSQL, cleaned, and matched across sources. The short volume, short interest, daily FTD, and FTD episode analyses are complete. Formal statistical modeling has not started.
 
 ## Getting the data
 
@@ -183,6 +183,20 @@ docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -
 docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/010_ftd_sensitivity.sql'
 ```
 
-This phase analyzes individual daily balances only. It does not combine consecutive observations into FTD episodes.
+## FTD episode analysis
+
+The analysis runner also groups daily FTD observations into episodes. An episode continues when the same security appears on the next observed SEC settlement date and the calendar gap is no longer than four days. This keeps weekends and ordinary market holidays together while breaking episodes at longer gaps in the source data.
+
+An isolated episode has one observation. A persistent episode has two or more. The table records episode length, peak quantity, recurrence, prior short volume, and the latest short interest observation on or before the episode start. It also stores `ftd_balance_days`, the sum of the daily outstanding balances in an episode. This is an intensity measure, not a count of newly failed shares.
+
+Run the episode reports with:
+
+```powershell
+docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/011_ftd_episode_quality.sql'
+docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/012_ftd_episode_results.sql'
+docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/013_ftd_episode_sensitivity.sql'
+```
+
+The primary results end in July 2026. Later observations remain in the table but are marked as outside the complete shared period. Episodes touching the beginning or end of the available FTD history are also marked as censored.
 
 For short interest reported on exchanges, 97.68% of rows received a supported match. Daily short volume matched at 97.59%. These figures include exact matches on the same date and lower confidence matches within a symbol date range supported by SEC data. The report shows the two groups separately. The 100% reported for SEC FTD rows only means that each valid CUSIP identifies its own row. It is not a match rate across datasets.
