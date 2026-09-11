@@ -65,7 +65,7 @@ This project studies market structure. It is not intended to predict prices, ide
 
 ## Project status
 
-The data has been downloaded, loaded into PostgreSQL, cleaned, and matched across sources. The short volume, short interest, daily FTD, and FTD episode analyses are complete. Formal statistical modeling has not started.
+The data has been downloaded, loaded into PostgreSQL, cleaned, and matched across sources. The short volume, short interest, daily FTD, FTD episode, and formal statistical analyses are complete. Dashboard work has not started.
 
 ## Getting the data
 
@@ -200,3 +200,13 @@ docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -
 The primary results end in July 2026. Later observations remain in the table but are marked as outside the complete shared period. Episodes touching the beginning or end of the available FTD history are also marked as censored.
 
 For short interest reported on exchanges, 97.68% of rows received a supported match. Daily short volume matched at 97.59%. These figures include exact matches on the same date and lower confidence matches within a symbol date range supported by SEC data. The report shows the two groups separately. The 100% reported for SEC FTD rows only means that each valid CUSIP identifies its own row. It is not a match rate across datasets.
+
+## Statistical analysis
+
+Run the formal analysis after building the earlier analysis tables:
+
+```powershell
+python -m src.statistics.run
+```
+
+The runner calculates pooled and within-security effects, clustered confidence intervals, predetermined cohort comparisons, and the planned sensitivity checks. Results are stored in `market_structure.statistical_results`. P-values are included, but the analysis treats effect size and stability as the main evidence because the samples contain millions of observations.
