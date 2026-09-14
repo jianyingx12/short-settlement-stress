@@ -51,11 +51,11 @@ The goal was to measure these relationships, not assume they exist. A weak relat
 
 The project uses three free public regulatory datasets:
 
-* FINRA Consolidated NMS Daily Short Sale Volume
-* FINRA Equity Short Interest
-* SEC Fails to Deliver Data
+* [FINRA Consolidated NMS Daily Short Sale Volume](https://www.finra.org/finra-data/browse-catalog/short-sale-volume-data/daily-short-sale-volume-files)
+* [FINRA Equity Short Interest](https://www.finra.org/finra-data/browse-catalog/equity-short-interest)
+* [SEC Fails to Deliver Data](https://www.sec.gov/data-research/sec-markets-data/fails-deliver-data)
 
-The target period begins in August 2018. Missing history is not treated as zero.
+The target period begins in August 2018, and the final results end on July 31, 2026. Missing history is not treated as zero.
 
 ## Approach
 
@@ -78,16 +78,6 @@ The analysis was built around four questions.
 The samples are large enough to make tiny effects look statistically significant. I therefore focused on effect sizes, clustered confidence intervals, results within each security, and sensitivity checks instead of treating p values as the conclusion.
 
 The full results are in [FINDINGS.md](FINDINGS.md). The important qualifications are in [LIMITATIONS.md](LIMITATIONS.md).
-
-## Data
-
-The project uses three free regulatory datasets:
-
-* [FINRA Consolidated NMS Daily Short Sale Volume](https://www.finra.org/finra-data/browse-catalog/short-sale-volume-data/daily-short-sale-volume-files)
-* [FINRA Equity Short Interest](https://www.finra.org/finra-data/browse-catalog/equity-short-interest)
-* [SEC Fails-to-Deliver Data](https://www.sec.gov/data-research/sec-markets-data/fails-deliver-data)
-
-The database includes observations after July 2026, but August is not complete across all three sources. Those later rows are kept out of the main results. Missing history is never filled with zero.
 
 ## How the project works
 
