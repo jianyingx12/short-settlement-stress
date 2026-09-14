@@ -36,177 +36,94 @@ These measures answer different questions:
 
 A stock can therefore have high daily short sale volume but modest short interest, or a large FTD balance without unusually high short activity. Treating the measures as interchangeable can lead to misleading conclusions.
 
-## What I plan to investigate
+## What I planned to investigate
 
-The analysis will focus on four questions:
+The analysis focused on four questions:
 
 1. Do stocks with unusually high short sale activity also have unusually high short interest?
 2. Does a change in short sale activity tend to appear before a change in reported short interest?
 3. What do short interest and recent short activity look like when a stock has an extreme FTD balance?
 4. What separates an FTD spike that lasts one day from a balance that persists across several settlement dates?
 
-The goal is to measure these relationships, not assume they exist. A weak relationship or a null result would still be useful.
+The goal was to measure these relationships, not assume they exist. A weak relationship or a null result would still be useful.
 
-## Data
+## Data used
 
-The project will use three free public regulatory datasets:
+The project uses three free public regulatory datasets:
 
-- FINRA Consolidated NMS Daily Short Sale Volume
-- FINRA Equity Short Interest
-- SEC Fails-to-Deliver Data
+* FINRA Consolidated NMS Daily Short Sale Volume
+* FINRA Equity Short Interest
+* SEC Fails to Deliver Data
 
-The target period begins in August 2018. Some questions may require a later start if one of the datasets does not have complete coverage for the full period. Missing history will not be treated as zero.
+The target period begins in August 2018. Missing history is not treated as zero.
 
 ## Approach
 
-PostgreSQL and SQL will handle the core data modeling, joins, rolling calculations, and episode construction. Python will be used for data checks, statistical analysis, and supporting charts. The completed analysis will be presented in Power BI.
+PostgreSQL and SQL handle the core data modeling, joins, rolling calculations, and episode construction. Python is used for data checks and statistical analysis. The completed analysis is presented in Power BI.
 
 This project studies market structure. It is not intended to predict prices, identify short squeezes, or produce trading signals.
 
-## Project status
+## What I found
 
-The data has been downloaded, loaded into PostgreSQL, cleaned, and matched across sources. The short volume, short interest, daily FTD, FTD episode, and formal statistical analyses are complete. Dashboard work has not started.
+The analysis was built around four questions.
 
-## Getting the data
+1. **Does high short activity come with high short interest?** Usually, but only weakly. The main Spearman correlation is 0.171. The result remains positive within the same security, although it becomes much weaker in the strictest identity sample.
 
-The three sources can be acquired with standard Python and no paid API keys:
+2. **Do changes in short activity line up with later changes in short interest?** This is the clearest relationship in the project, but it is still modest. The Spearman correlation is 0.186, and the extreme increase and decrease groups have a Cliff's delta of 0.347.
 
-```powershell
-python -m src.ingestion.finra_short_volume
-python -m src.ingestion.finra_short_interest
-python -m src.ingestion.sec_ftd
-```
+3. **What is happening when an FTD balance is extreme for that security?** Short interest has a Spearman correlation of 0.161 with relative FTD intensity. Prior short activity has a smaller correlation of 0.119. Most p99 FTD observations do not have both high short interest and high short activity at the same time.
 
-Each command resumes safely when valid raw files already exist. Raw downloads are stored under `data/raw/` and are excluded from Git. Use `--help` to see date range, worker, and smoke test options.
+4. **What separates persistent FTD episodes from isolated ones?** Mainly the severity of the FTD balance. Cliff's delta is 0.438 for peak historical intensity and 0.424 for peak quantity. The effects for prior short activity and short interest are only 0.076 and 0.020.
 
-## Loading PostgreSQL
+The samples are large enough to make tiny effects look statistically significant. I therefore focused on effect sizes, clustered confidence intervals, results within each security, and sensitivity checks instead of treating p values as the conclusion.
 
-The repository includes a small Docker Compose setup for PostgreSQL 17. Copy the example environment file, choose a local password, and start the database:
+The full results are in [FINDINGS.md](FINDINGS.md). The important qualifications are in [LIMITATIONS.md](LIMITATIONS.md).
 
-```powershell
-Copy-Item .env.example .env
-docker compose up -d
-```
+## Data
 
-Create a Python environment and install the PostgreSQL driver:
+The project uses three free regulatory datasets:
 
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-```
+* [FINRA Consolidated NMS Daily Short Sale Volume](https://www.finra.org/finra-data/browse-catalog/short-sale-volume-data/daily-short-sale-volume-files)
+* [FINRA Equity Short Interest](https://www.finra.org/finra-data/browse-catalog/equity-short-interest)
+* [SEC Fails-to-Deliver Data](https://www.sec.gov/data-research/sec-markets-data/fails-deliver-data)
 
-Load the files already present under `data/raw/`:
+The database includes observations after July 2026, but August is not complete across all three sources. Those later rows are kept out of the main results. Missing history is never filled with zero.
 
-```powershell
-python -m src.loading.load_all
-```
+## How the project works
 
-The loader uses PostgreSQL COPY and records a SHA-256 checksum for every file. Running it again skips files that have not changed. If a file changes under the same name, only that file's rows are replaced, inside a transaction.
+PostgreSQL does most of the heavy lifting because the source and cleaned tables contain tens of millions of rows. Python handles acquisition, loading, statistical calculations, and database orchestration. Power BI reads a small reporting layer instead of importing the full analytical tables.
 
-To check the loaded counts and date coverage against the acquisition results:
+| Stage | What it does | Entry point |
+|---|---|---|
+| Acquisition | Downloads and validates the FINRA and SEC files | `src/ingestion` |
+| Loading | Copies raw rows into PostgreSQL and records file hashes | `src/loading/load_all.py` |
+| Cleaning | Keeps the source rows, adds quality flags, and matches securities | `src/cleaning/run.py` |
+| Features | Builds short volume ratios and rolling windows | `src/features/run.py` |
+| Analysis | Aligns settlement dates and builds FTD episodes | `src/analysis/run.py` |
+| Statistics | Calculates the final estimates and sensitivity checks | `src/statistics/run.py` |
+| Reporting | Creates the smaller Power BI tables and views | `src/reporting/run.py` |
 
-```powershell
-docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/001_counts_and_coverage.sql'
-```
+Security matching is intentionally conservative. SEC CUSIPs anchor the identity table. A FINRA row receives a security ID only when the historical SEC records support that symbol and CUSIP around the relevant date. Ambiguous rows stay unmatched instead of being forced into a join.
 
-## Cleaning and security matching
+The supported match rate is 97.68% for the exchange listed short interest population and 97.59% for daily short volume. The main analysis includes high and medium confidence matches. I also ran a stricter check using only high confidence matches.
 
-Build the cleaned tables after loading the raw data:
+Short volume windows always end before the settlement date being studied. The window of 14 observations is the main specification, while windows of 5 and 30 observations are used as checks. For an FTD row, short interest comes from the latest settlement observation on or before the FTD date.
 
-```powershell
-python -m src.cleaning.run
-```
+FTD size is judged against each security's own earlier history. This avoids comparing the raw share balance of a small security directly with that of a much larger one. Consecutive FTD observations are also grouped into episodes so isolated records can be compared with balances that persist.
 
-The build keeps every raw row and adds quality flags instead of silently deleting questionable records. SEC CUSIPs provide the security anchors. FINRA rows are linked only when their symbol is supported by SEC observations for the relevant date; uncertain rows keep a blank security ID.
+## Power BI dashboard
 
-Run the database checks and view the quality report with:
+The finished [Power BI report](dashboard/short-selling-settlement-stress.pbix) has four pages:
 
-```powershell
-python -m src.cleaning.run --sql-dir sql/tests
-docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/003_cleaning_quality.sql'
-```
+* **Market Overview** explains the measures and shows their distributions and main correlations.
+* **Security Explorer** follows short interest, short volume, and FTDs for one selected security.
+* **FTD Episodes** compares isolated and persistent episodes.
+* **Relationship Analysis** shows the main cohorts, extreme FTD regimes, and effect sizes.
 
-To refresh only the quality, identity, and coverage summaries without rebuilding the large cleaned tables:
+The summary tables use Import mode. The three Security Explorer timelines use DirectQuery, so the detailed history stays in PostgreSQL instead of being packed into the PBIX.
 
-```powershell
-python -m src.cleaning.run --summaries-only
-```
+## What this project cannot show
 
-Build the daily short volume ratios and features based on observation windows with:
+This analysis cannot tell us why a trade was marked short, why a delivery failed, or what information investors knew on a settlement date. It also cannot turn these relationships into evidence of manipulation, naked short selling, price predictability, or a short squeeze.
 
-```powershell
-python -m src.features.run
-```
-
-The feature table uses only valid rows with identity matches rated high or medium confidence. Rolling values require complete histories of 5, 14, or 30 observations. Recent partial periods are kept for review but left out of the primary analysis window.
-
-After the build, rerun the database assertions and inspect the feature quality reports with:
-
-```powershell
-python -m src.cleaning.run --sql-dir sql/tests
-docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/004_short_volume_features.sql'
-```
-
-## Short interest cycle analysis
-
-Build the short interest cycles and align each observation with FINRA activity strictly before its settlement date:
-
-```powershell
-python -m src.analysis.run
-```
-
-The main analysis uses the preceding 14 observed FINRA trading days. Averages based on 5 and 30 observations are kept for comparison. Changes in short interest use adjacent reporting cycles. Rows after the latest complete shared month remain stored but are excluded from the main cohort results.
-
-Run the assertions and descriptive report with:
-
-```powershell
-python -m src.cleaning.run --sql-dir sql/tests
-docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/005_short_interest_quality.sql'
-docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/006_short_interest_results.sql'
-docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/007_short_interest_sensitivity.sql'
-```
-
-The report contains descriptive correlations and summaries based on fixed groups. Settlement dates show when the values were measured. Historical publication dates are unavailable, so these results do not show what investors knew at the time.
-
-## FTD observation analysis
-
-The analysis runner also builds one row for each SEC FTD record that passes the data checks. FTD quantity is treated as an outstanding balance, not as new failures created that day. Approximate value uses the SEC reference price when available and remains null when the price is missing.
-
-The first 200 observations for each security form a fixed historical baseline. Later observations are compared with thresholds at the 95th, 99th, and 99.5th percentiles. Short volume comes strictly before the FTD settlement date. Short interest comes from the latest settlement observation on or before that date.
-
-Run the FTD reports with:
-
-```powershell
-docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/008_ftd_quality.sql'
-docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/009_ftd_results.sql'
-docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/010_ftd_sensitivity.sql'
-```
-
-## FTD episode analysis
-
-The analysis runner also groups daily FTD observations into episodes. An episode continues when the same security appears on the next observed SEC settlement date and the calendar gap is no longer than four days. This keeps weekends and ordinary market holidays together while breaking episodes at longer gaps in the source data.
-
-An isolated episode has one observation. A persistent episode has two or more. The table records episode length, peak quantity, recurrence, prior short volume, and the latest short interest observation on or before the episode start. It also stores `ftd_balance_days`, the sum of the daily outstanding balances in an episode. This is an intensity measure, not a count of newly failed shares.
-
-Run the episode reports with:
-
-```powershell
-docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/011_ftd_episode_quality.sql'
-docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/012_ftd_episode_results.sql'
-docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /project-sql/validation/013_ftd_episode_sensitivity.sql'
-```
-
-The primary results end in July 2026. Later observations remain in the table but are marked as outside the complete shared period. Episodes touching the beginning or end of the available FTD history are also marked as censored.
-
-For short interest reported on exchanges, 97.68% of rows received a supported match. Daily short volume matched at 97.59%. These figures include exact matches on the same date and lower confidence matches within a symbol date range supported by SEC data. The report shows the two groups separately. The 100% reported for SEC FTD rows only means that each valid CUSIP identifies its own row. It is not a match rate across datasets.
-
-## Statistical analysis
-
-Run the formal analysis after building the earlier analysis tables:
-
-```powershell
-python -m src.statistics.run
-```
-
-The runner calculates pooled and within-security effects, clustered confidence intervals, predetermined cohort comparisons, and the planned sensitivity checks. Results are stored in `market_structure.statistical_results`. P-values are included, but the analysis treats effect size and stability as the main evidence because the samples contain millions of observations.
+See [LIMITATIONS.md](LIMITATIONS.md) for the full discussion.
